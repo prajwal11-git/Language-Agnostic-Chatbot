@@ -1,0 +1,22 @@
+﻿# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# General / project
+.env
+.DS_Store
+.vscode/
+dist/
+build/
+logs/
+*.log
+
+# OS files
+Thumbs.db
+Desktop.ini
