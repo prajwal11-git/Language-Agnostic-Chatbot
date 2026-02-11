@@ -9,11 +9,11 @@ export const chatController = async (req, res) => {
     }
 
     const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" +
-        process.env.GEMINI_API_KEY,
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
       {
         method: "POST",
         headers: {
+          "x-goog-api-key" : `${process.env.GEMINI_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

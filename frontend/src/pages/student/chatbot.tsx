@@ -49,7 +49,7 @@ const StudentChatbot = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = (content: string) => {
+  const handleSend = async (content: string) => {
     const userMessage: Message = {
       role: "user",
       content,
@@ -62,17 +62,24 @@ const StudentChatbot = () => {
     setMessages((prev) => [...prev, userMessage]);
 
     // Simulate AI response
-    setTimeout(() => {
+      const geminiResponse = await fetch(`/api/chat`,{
+        method : "POST",
+        headers : {
+          "Content-Type" : "application/json",
+        },
+        body : JSON.stringify({message:content}),
+      });
+      const data = await geminiResponse.json();
       const assistantMessage: Message = {
         role: "assistant",
-        content: "I'm your College Assistant. I can help you with attendance, timetables, certificates, and more. How can I assist you today?",
+        content: data.reply ?? "No reply from server",
         timestamp: new Date().toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
         }),
       };
       setMessages((prev) => [...prev, assistantMessage]);
-    }, );
+  
   };
 
   const handleNewChat = () => {
