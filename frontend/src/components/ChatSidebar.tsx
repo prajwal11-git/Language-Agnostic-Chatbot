@@ -16,7 +16,13 @@ interface ChatSidebarProps {
   onSelectChat?: (id: string) => void;
 }
 
-const ChatSidebar = ({ onNewChat, chatHistory = [], currentChatId, onSelectChat }: ChatSidebarProps) => {
+try{
+  const chatHistory = await fetch("/api/conversations").then(res => res.json());
+}catch(error){
+  console.error("Error fetching conversations:", error);
+}
+  
+const ChatSidebar = ({ onNewChat, currentChatId, onSelectChat }: ChatSidebarProps) => {
   const defaultHistory: ChatHistory[] = chatHistory.length > 0 ? chatHistory : [
     { id: "1", title: "Check my attendance", timestamp: "Today" },
     { id: "2", title: "Fee payment inquiry", timestamp: "Yesterday" },

@@ -8,7 +8,7 @@ import QuickActionButtons from "@/components/QuickActionButtons";
 import ChatSidebar from "@/components/ChatSidebar";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "assistant"|"admin";
   content: string;
   timestamp: string;
 }
@@ -39,11 +39,31 @@ const quickActions = [
 const StudentChatbot = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  useEffect( () => {
+      const conversation = async ()=>{
+        try{
+          const conversations = await fetch("/api/conversations").then(res => res.json());
+          const formattedConversations = conversations.map((conv:any)=>{
+            return({
+              id:conv._id,
+              title:conv.title,
+            })
+          })
+          setConversations(formattedConversations);
+        }catch(error){
+          console.error("Error fetching conversations:", error);
+        }
+      }
+      conversation();
+    }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -86,6 +106,12 @@ const StudentChatbot = () => {
     setMessages([]);
   };
 
+  const handleSelectChat = async (id: string) => {
+    setActiveConversationId(id);
+    const messages = await fetch(`/api/conversations/${activeConversationId}`).then(res => res.json());
+
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -106,7 +132,7 @@ const StudentChatbot = () => {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <ChatSidebar onNewChat={handleNewChat} />
+        <ChatSidebar onNewChat={handleNewChat} chatHistory={conversations} onSelectChat={handleSelectChat}/>
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col">

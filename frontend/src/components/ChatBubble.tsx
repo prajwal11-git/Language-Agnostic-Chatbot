@@ -3,7 +3,7 @@ import { User, Bot, ThumbsUp, ThumbsDown, Copy, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ChatBubbleProps {
-  role: "user" | "assistant";
+  role: "user" | "assistant"|"admin";
   content: string;
   timestamp?: string;
 }

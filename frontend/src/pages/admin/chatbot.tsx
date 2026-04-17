@@ -8,7 +8,7 @@ import QuickActionButtons from "@/components/QuickActionButtons";
 import ChatSidebar from "@/components/ChatSidebar";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "assistant" ;
   content: string;
   timestamp: string;
 }
@@ -35,6 +35,8 @@ const quickActions = [
     action: "Generate a comprehensive administrative report",
   },
 ];
+
+
 
 const AdminChatbot = () => {
   const navigate = useNavigate();
@@ -72,6 +74,7 @@ const AdminChatbot = () => {
       setMessages((prev) => [...prev, assistantMessage]);
     }, 1000);
   };
+
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
