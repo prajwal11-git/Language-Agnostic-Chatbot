@@ -6,6 +6,7 @@ import ChatBubble from "@/components/ChatBubble";
 import ChatInput from "@/components/ChatInput";
 import QuickActionButtons from "@/components/QuickActionButtons";
 import ChatSidebar from "@/components/ChatSidebar";
+import { set } from "date-fns";
 
 interface Message {
   role: "user" | "assistant"|"admin";
@@ -70,47 +71,83 @@ const StudentChatbot = () => {
   }, [messages]);
 
   const handleSend = async (content: string) => {
-    const userMessage: Message = {
-      role: "user",
-      content,
-      timestamp: new Date().toLocaleTimeString("en-US", {
+  const userMessage: Message = {
+    role: "user",
+    content,
+    timestamp: new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  };
+
+  setMessages((prev) => [...prev, userMessage]);
+
+  try {
+    const res = await fetch(`/api/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: content,
+        conversationId: activeConversationId, // ✅ CRITICAL
+      }),
+    });
+
+    const data = await res.json();
+
+    // ✅ If new chat, backend returns new conversationId
+    if (!activeConversationId && data.conversationId) {
+      setActiveConversationId(data.conversationId);
+
+      // also update sidebar
+      setConversations((prev) => [
+        { id: data.conversationId, title: data.title },
+        ...prev,
+      ]);
+    }
+
+    const assistantMessage: Message = {
+      role: "assistant",
+      content: data.reply,
+      timestamp: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       }),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-
-    // Simulate AI response
-      const geminiResponse = await fetch(`/api/chat`,{
-        method : "POST",
-        headers : {
-          "Content-Type" : "application/json",
-        },
-        body : JSON.stringify({message:content}),
-      });
-      const data = await geminiResponse.json();
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.reply ?? "No reply from server",
-        timestamp: new Date().toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-  
-  };
+    setMessages((prev) => [...prev, assistantMessage]);
+  } catch (error) {
+    console.error("Chat error:", error);
+  }
+};
 
   const handleNewChat = () => {
     setMessages([]);
+    setActiveConversationId(null);
   };
 
   const handleSelectChat = async (id: string) => {
-    setActiveConversationId(id);
-    const messages = await fetch(`/api/conversations/${activeConversationId}`).then(res => res.json());
+  setActiveConversationId(id);
 
+  try {
+    const res = await fetch(`/api/conversations/${id}`);
+    const data = await res.json();
+
+    const formattedMessages = data.map((msg: any) => ({
+      role: msg.role,
+      content: msg.content,
+      timestamp: new Date(msg.createdAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    }));
+
+    setMessages(formattedMessages); 
+  } catch (error) {
+    console.error("Error fetching messages:", error);
   }
+};
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -132,7 +169,7 @@ const StudentChatbot = () => {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <ChatSidebar onNewChat={handleNewChat} chatHistory={conversations} onSelectChat={handleSelectChat}/>
+        <ChatSidebar onNewChat={handleNewChat} chatHistory={conversations} currentChatId={activeConversationId}onSelectChat={handleSelectChat}/>
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col">

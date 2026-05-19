@@ -5,11 +5,6 @@ const conversationSchema = new mongoose.Schema({
         type:String,
         required: true,
     },
-    accessType:{
-        type:String,
-        enum: ['student','faculty','admin'],
-        required:true,
-    },
     title:{
         type:String,
         required:true,

@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 interface ChatHistory {
   id: string;
   title: string;
-  timestamp: string;
 }
 
 interface ChatSidebarProps {
@@ -15,18 +14,12 @@ interface ChatSidebarProps {
   currentChatId?: string;
   onSelectChat?: (id: string) => void;
 }
-
-try{
-  const chatHistory = await fetch("/api/conversations").then(res => res.json());
-}catch(error){
-  console.error("Error fetching conversations:", error);
-}
   
-const ChatSidebar = ({ onNewChat, currentChatId, onSelectChat }: ChatSidebarProps) => {
+const ChatSidebar = ({ onNewChat, chatHistory = [], currentChatId, onSelectChat }: ChatSidebarProps) => {
   const defaultHistory: ChatHistory[] = chatHistory.length > 0 ? chatHistory : [
-    { id: "1", title: "Check my attendance", timestamp: "Today" },
-    { id: "2", title: "Fee payment inquiry", timestamp: "Yesterday" },
-    { id: "3", title: "Certificate application", timestamp: "2 days ago" },
+    { id: "1", title: "Check my attendance"},
+    { id: "2", title: "Fee payment inquiry" },
+    { id: "3", title: "Certificate application" },
   ];
 
   return (
@@ -78,7 +71,6 @@ const ChatSidebar = ({ onNewChat, currentChatId, onSelectChat }: ChatSidebarProp
                   <MessageSquare className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{chat.title}</p>
-                    <p className="text-xs text-muted-foreground">{chat.timestamp}</p>
                   </div>
                 </div>
               </button>
