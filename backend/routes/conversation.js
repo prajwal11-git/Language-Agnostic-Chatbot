@@ -1,8 +1,12 @@
 import { Router} from "express";
-import { conversationController } from "../controllers/conversationController.js";
+import { getAllConversations } from "../controllers/getAllConversations.js";
+import {getOneConversation} from "../controllers/getOneConversation.js";
+import { get } from "mongoose";
+
 
 const conversationRouter = Router();
 
-conversationRouter.get('/',conversationController);
+conversationRouter.get('/',getAllConversations);
+conversationRouter.get('/:id',getOneConversation);
 
 export default conversationRouter;

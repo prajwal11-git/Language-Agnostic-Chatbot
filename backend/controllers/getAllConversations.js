@@ -4,7 +4,7 @@ import connectToDatabase from "../database/mongodb.js";
 import conversationRouter from "../routes/conversation.js";
 
 
-export const conversationController = async(req,res) =>{
+export const getAllConversations = async(req,res) =>{
     try{
         const conversations = await Conversation.find().sort({createdAt : -1}).limit(10);
         res.status(200).json(conversations);

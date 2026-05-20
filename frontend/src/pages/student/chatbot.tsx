@@ -40,7 +40,7 @@ const quickActions = [
 const StudentChatbot = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] = useState<{ id: string; title: string }[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +48,10 @@ const StudentChatbot = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+
+
+
+  
   useEffect( () => {
       const conversation = async ()=>{
         try{
@@ -66,11 +70,22 @@ const StudentChatbot = () => {
       conversation();
     }, []);
 
+
+
+
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async (content: string) => {
+
+
+
+
+ const handleSend = async (content: string) => {
+
+  const currentConversationId = activeConversationId;
+
   const userMessage: Message = {
     role: "user",
     content,
@@ -80,9 +95,25 @@ const StudentChatbot = () => {
     }),
   };
 
-  setMessages((prev) => [...prev, userMessage]);
+  
+  const assistantMessage: Message = {
+    role: "assistant",
+    content: "",
+    timestamp: new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  };
+
+
+  setMessages((prev) => [
+    ...prev,
+    userMessage,
+    assistantMessage,
+  ]);
 
   try {
+
     const res = await fetch(`/api/chat`, {
       method: "POST",
       headers: {
@@ -90,42 +121,103 @@ const StudentChatbot = () => {
       },
       body: JSON.stringify({
         message: content,
-        conversationId: activeConversationId, // ✅ CRITICAL
+        conversationId: currentConversationId,
       }),
     });
 
-    const data = await res.json();
+   
+    const newConversationId =
+      res.headers.get("x-conversation-id");
 
-    // ✅ If new chat, backend returns new conversationId
-    if (!activeConversationId && data.conversationId) {
-      setActiveConversationId(data.conversationId);
+    const newConversationTitle =
+      res.headers.get("x-conversation-title");
 
-      // also update sidebar
+    // HANDLE NEW CHAT
+    if (!currentConversationId && newConversationId) {
+
+      setActiveConversationId(newConversationId);
+
       setConversations((prev) => [
-        { id: data.conversationId, title: data.title },
+        {
+          id: newConversationId,
+          title: newConversationTitle || "New Chat",
+        },
         ...prev,
       ]);
     }
 
-    const assistantMessage: Message = {
-      role: "assistant",
-      content: data.reply,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
+    
+    else if (currentConversationId) {
 
-    setMessages((prev) => [...prev, assistantMessage]);
+      setConversations((prev) => {
+
+        const currentChat = prev.find(
+          (conv) =>
+            conv.id === currentConversationId
+        );
+
+        if (!currentChat) return prev;
+
+        const filtered = prev.filter(
+          (conv) =>
+            conv.id !== currentConversationId
+        );
+
+        return [
+          currentChat,
+          ...filtered,
+        ];
+      });
+    }
+
+  
+    if (!res.body) {
+      throw new Error("No response body");
+    }
+
+    const reader = res.body.getReader();
+
+    const decoder = new TextDecoder();
+
+    let streamedText = "";
+
+    while (true) {
+
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+
+      streamedText += chunk;
+
+
+      setMessages((prev) => {
+
+        const updated = [...prev];
+
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          content: streamedText,
+        };
+
+        return updated;
+      });
+    }
+
   } catch (error) {
     console.error("Chat error:", error);
   }
 };
 
+
+
   const handleNewChat = () => {
     setMessages([]);
     setActiveConversationId(null);
   };
+
+
 
   const handleSelectChat = async (id: string) => {
   setActiveConversationId(id);
@@ -149,9 +241,11 @@ const StudentChatbot = () => {
   }
 };
 
+
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
+ 
       <header className="h-16 border-b border-border bg-card flex items-center px-6 sticky top-0 z-10 backdrop-blur-sm bg-card/95">
         <Button
           variant="ghost"
@@ -168,10 +262,11 @@ const StudentChatbot = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
+
+
         <ChatSidebar onNewChat={handleNewChat} chatHistory={conversations} currentChatId={activeConversationId}onSelectChat={handleSelectChat}/>
 
-        {/* Chat Area */}
+
         <div className="flex-1 flex flex-col">
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -206,7 +301,7 @@ const StudentChatbot = () => {
             </div>
           </div>
 
-          {/* Input Area */}
+
           <ChatInput
             onSend={handleSend}
             placeholder="Ask anything."
