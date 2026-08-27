@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { User, ChevronDown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { User, ChevronDown, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/context/AuthContext";
 import ProfileModal from "./ProfileModal";
 
 interface HeaderProps {
@@ -23,13 +25,20 @@ interface HeaderProps {
 }
 
 const Header = ({ title, userInfo }: HeaderProps) => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <>
       <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 sticky top-0 z-10 backdrop-blur-sm bg-card/95">
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-        
+
         {userInfo && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -51,7 +60,8 @@ const Header = ({ title, userInfo }: HeaderProps) => {
                 Change Password
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
+                <LogOut className="w-4 h-4 mr-2" />
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

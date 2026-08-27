@@ -5,173 +5,165 @@ import { v4 as uuidv4 } from "uuid";
 export const chatController = async (req, res) => {
   try {
     const { message, conversationId } = req.body;
+    const userId = req.user.id;
 
     if (!message) {
-      return res.status(400).json({
-        error: "Message is required",
-      });
+      return res.status(400).json({ error: "Message is required" });
     }
 
     let activeConversationId = conversationId;
     let isNewConversation = false;
 
-    
     if (!activeConversationId) {
       const newConversation = await Conversation.create({
         title: message.slice(0, 30),
-        userId: "temp-session",
+        userId,
       });
 
-      activeConversationId = newConversation._id;
+      activeConversationId = newConversation._id.toString();
       isNewConversation = true;
+    } else {
+      const existingConversation = await Conversation.findOne({
+        _id: activeConversationId,
+        userId,
+      }).lean();
+
+      if (!existingConversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
     }
 
-    
     await Message.create({
       conversationId: activeConversationId,
-      userId: "temp-session",
+      userId,
       role: "user",
       content: message,
       messageid: uuidv4(),
     });
 
-    
     const previousMessages = await Message.find({
       conversationId: activeConversationId,
+      userId,
     })
       .sort({ createdAt: 1 })
       .limit(10)
       .lean();
 
-    
-    const formattedMessages = previousMessages.map((msg) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }],
-    }));
+    const formattedMessages = [
+      {
+        role: "system",
+        content: `You are a helpful college assistant chatbot.
 
-   
-    formattedMessages.unshift({
-      role: "user",
-      parts: [
-        {
-          text: `
-You are a helpful college assistant chatbot.
 Help students with:
 - attendance
 - fees
 - certificates
-- campus queries
-`,
-        },
-      ],
-    });
+- campus queries`,
+      },
+      ...previousMessages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+    ];
 
-   
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.setHeader("Transfer-Encoding", "chunked");
-
-      
-    res.setHeader(
-      "x-conversation-id",
-      activeConversationId.toString()
-    );
-
-    if (isNewConversation) {
-      res.setHeader(
-        "x-conversation-title",
-        message.slice(0, 30)
-      );
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error("GROQ_API_KEY environment variable is not set");
     }
 
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Transfer-Encoding", "chunked");
+    res.setHeader("x-conversation-id", activeConversationId);
 
+    if (isNewConversation) {
+      res.setHeader("x-conversation-title", message.slice(0, 30));
+    }
 
-    const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse",
+    const groqResponse = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
       {
         method: "POST",
         headers: {
-          "x-goog-api-key": process.env.GEMINI_API_KEY,
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          contents: formattedMessages,
+          model: "llama-3.3-70b-versatile",
+          messages: formattedMessages,
+          stream: true,
+          temperature: 0,
         }),
       }
     );
 
-    if (!geminiResponse.ok) {
-      throw new Error("Gemini API request failed");
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text();
+      console.error("GROQ API Error Response:", errorText);
+      throw new Error(
+        `GROQ API request failed with status ${groqResponse.status}`
+      );
     }
 
-    
-    const reader = geminiResponse.body.getReader();
+    const reader = groqResponse.body?.getReader();
+    if (!reader) {
+      throw new Error("Missing response stream from GROQ");
+    }
 
     const decoder = new TextDecoder();
-
     let fullReply = "";
+    let buffer = "";
 
     while (true) {
       const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
 
-      if (done) break;
-
-      const chunk = decoder.decode(value);
-
-      
-      const lines = chunk.split("\n");
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
       for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
+        if (!line.startsWith("data: ")) {
+          continue;
+        }
 
-        const jsonString = line.replace("data: ", "").trim();
-
-        if (!jsonString) continue;
+        const data = line.slice(6).trim();
+        if (!data || data === "[DONE]") {
+          continue;
+        }
 
         try {
-          const parsed = JSON.parse(jsonString);
-
-          const text =
-            parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+          const parsed = JSON.parse(data);
+          const text = parsed?.choices?.[0]?.delta?.content;
 
           if (text) {
-            
             fullReply += text;
-
-            
             res.write(text);
           }
         } catch (error) {
-          console.error("SSE Parse Error:", error);
+          console.error("Stream Parse Error:", error);
         }
       }
     }
 
-    
     await Message.create({
       conversationId: activeConversationId,
-      userId: "temp-session",
+      userId,
       role: "assistant",
       content: fullReply,
       messageid: uuidv4(),
     });
 
-    
     await Conversation.findByIdAndUpdate(activeConversationId, {
       updatedAt: new Date(),
     });
 
-   
-    res.end();
-
+    return res.end();
   } catch (error) {
     console.error("Chat controller error:", error);
-
     if (!res.headersSent) {
-      res.status(500).json({
-        error: error.message,
-      });
-    } else {
-      res.end();
+      return res.status(500).json({ error: error.message });
     }
+    return res.end();
   }
 };

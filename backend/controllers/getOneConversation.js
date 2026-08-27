@@ -5,8 +5,9 @@ import Message from "../models/messages.model.js";
 export const getOneConversation = async(req,res) => {
     try{
         const {id} = req.params;
-        const messages  = await Message.find({conversationId : id});
-        if(!messages){
+        const userId = req.user.id;
+        const messages = await Message.find({conversationId : id, userId});
+        if(!messages || messages.length === 0){
             return res.status(404).json({message:"Conversation not found"});
         }
         res.status(200).json(messages);

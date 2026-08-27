@@ -3,10 +3,11 @@ import Message from "../models/messages.model.js";
 export const messagesController = async (req , res) => {
     try{
         const {conversationId}= req.query;
+        const userId = req.user.id;
         if(!conversationId){
             return res.status(400).json({message:"conversationId is required"});
         }
-        const messages = (await Message.find({conversationId})).sort({createAt:1});
+        const messages = await Message.find({conversationId, userId}).sort({createdAt:1});
 
         res.status(200).json(messages);
 

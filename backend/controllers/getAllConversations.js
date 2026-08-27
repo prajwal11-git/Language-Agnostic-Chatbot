@@ -6,7 +6,8 @@ import conversationRouter from "../routes/conversation.js";
 
 export const getAllConversations = async(req,res) =>{
     try{
-        const conversations = await Conversation.find().sort({createdAt : -1}).limit(10);
+        const userId = req.user.id;
+        const conversations = await Conversation.find({ userId }).sort({createdAt : -1}).limit(10);
         res.status(200).json(conversations);
     }catch(error){
         res.status(500).json({message:"Error fetching conversations",error:error.message});
